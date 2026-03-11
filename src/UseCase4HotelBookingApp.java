@@ -1,8 +1,8 @@
 import java.util.HashMap;
 import java.util.Map;
 
-//Introduce centralized inventory management by replacing scattered availability variables with a single, consistent data structure, demonstrating how HashMap solves real-world state management problems.
-//@version 3.0
+//Enable guests to view available rooms and their details without modifying system state, reinforcing safe data access and clear separation of responsibilities.
+//@version 4.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -51,22 +51,34 @@ class RoomInventory{
         roomAvailability.put(roomType,count);
     }
 }
-public class UseCase3HotelBookingApp{
+class RoomSearchService{
+    public void searchAvailableRooms(RoomInventory inventory, Room singleRoom, Room doubleRoom, Room suiteRoom){
+        Map<String,Integer> availability=inventory.getRoomAvailability();
+        if(availability.get("Single")>0){
+            System.out.println("Single Room:");
+            singleRoom.displayRoomDetails();
+            System.out.println("Available: "+availability.get("Single"));
+        }
+        if(availability.get("Double")>0){
+            System.out.println("\nDouble Room:");
+            doubleRoom.displayRoomDetails();
+            System.out.println("Available: "+availability.get("Double"));
+        }
+        if(availability.get("Suite")>0){
+            System.out.println("\nSuite Room:");
+            suiteRoom.displayRoomDetails();
+            System.out.println("Available: "+availability.get("Suite"));
+        }
+    }
+}
+public class UseCase4HotelBookingApp{
     public static void main(String[] args){
         SingleRoom r1=new SingleRoom();
         DoubleRoom r2=new DoubleRoom();
         SuiteRoom r3=new SuiteRoom();
-        System.out.println("Hotel Room Inventory Status\n");
         RoomInventory inventory=new RoomInventory();
-        Map<String, Integer> currentStock=inventory.getRoomAvailability();
-        System.out.println("Single Room: ");
-        r1.displayRoomDetails();
-        System.out.println("Available: "+currentStock.get("Single"));
-        System.out.println("\nDouble Room:");
-        r2.displayRoomDetails();
-        System.out.println("Available: "+currentStock.get("Double"));
-        System.out.println("\nSuite Room:");
-        r3.displayRoomDetails();
-        System.out.println("Available: "+currentStock.get("Suite"));
+        RoomSearchService searchService=new RoomSearchService();
+        System.out.println("Room Search\n");
+        searchService.searchAvailableRooms(inventory, r1, r2, r3);
     }
 }
