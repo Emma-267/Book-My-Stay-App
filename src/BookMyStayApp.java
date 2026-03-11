@@ -51,7 +51,7 @@ class RoomInventory{
         roomAvailability.put(roomType,count);
     }
 }
-public class UseCase3HotelBookingApp{
+public class BookMyStayApp{
     public static void main(String[] args){
         SingleRoom r1=new SingleRoom();
         DoubleRoom r2=new DoubleRoom();
