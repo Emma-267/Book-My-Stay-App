@@ -30,7 +30,7 @@ class SuiteRoom extends Room{
         super(3,750,5000.0);
     }
 }
-public class UseCase2HotelBookingApp{
+public class BookMyStayApp{
     public static void main(String[] args){
         SingleRoom r1=new SingleRoom();
         DoubleRoom r2=new DoubleRoom();
