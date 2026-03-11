@@ -71,7 +71,7 @@ class RoomSearchService{
         }
     }
 }
-public class UseCase4HotelBookingApp{
+public class BookMyStayApp{
     public static void main(String[] args){
         SingleRoom r1=new SingleRoom();
         DoubleRoom r2=new DoubleRoom();
