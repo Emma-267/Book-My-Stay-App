@@ -1,7 +1,7 @@
 import java.util.*;
 
-//Strengthen system reliability by introducing structured validation and error handling, ensuring that invalid inputs and inconsistent states are detected and handled early.
-//@version 9.0
+//Enable safe cancellation of confirmed bookings by correctly reversing system state changes, ensuring inventory consistency and predictable recovery behavior.
+//@version 10.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -231,14 +231,48 @@ class ReservationValidator{
         }
     }
 }
+class CancellationService{
+    private Stack<String> releasedIds;
+    private Map<String,String> reservationRoomTypeMap;
+    public CancellationService(){
+        releasedIds=new Stack<>();
+        reservationRoomTypeMap=new HashMap<>();
+    }
+    public void registerBooking(String reservationId, String roomType){
+        reservationRoomTypeMap.put(reservationId,roomType);
+    }
+    public void cancelBooking(String reservationId, RoomInventory inventory){
+        if(!reservationRoomTypeMap.containsKey(reservationId)){
+            System.out.println("Cancellation failed: Invalid reservation ID");
+            return;
+        }
+        String roomType=reservationRoomTypeMap.get(reservationId);
+        Map<String,Integer> availability=inventory.getRoomAvailability();
+        inventory.updateAvailability(roomType, availability.get(roomType)+1);
+        releasedIds.push(reservationId);
+        reservationRoomTypeMap.remove(reservationId);
+        System.out.println("Released Reservation ID: "+reservationId);
+    }
+    public void showRollbackHistory(){
+        System.out.println("\nRollback History (Most Recent First):");
+        if(releasedIds.isEmpty()){
+            System.out.println("No cancellations yet");
+            return;
+        }
+        for(String id:releasedIds){
+            System.out.println(id);
+        }
+    }
+}
 public class BookMyStayApp{
     public static void main(String[] args){
-        System.out.println("Booking Validation");
+        System.out.println("Booking Cancellation");
         Scanner scanner=new Scanner(System.in);
         BookingRequestQueue bookingQueue=new BookingRequestQueue();
         ReservationValidator validator=new ReservationValidator();
         RoomInventory inventory=new RoomInventory();
         RoomAllocationService allocator=new RoomAllocationService();
+        CancellationService cancellationService=new CancellationService();
         try{
             System.out.print("Enter Guest Name: ");
             String name=scanner.nextLine();
@@ -249,8 +283,15 @@ public class BookMyStayApp{
             bookingQueue.addRequest(reservation);
             while(bookingQueue.hasPendingRequests()){
                 Reservation current=bookingQueue.getNextRequest();
-                allocator.allocateRoom(current,inventory);
+                boolean success=allocator.allocateRoom(current,inventory);
+                if(success){
+                    cancellationService.registerBooking(current.getReservationId(),current.getRoomType());
+                }
             }
+            System.out.print("\nEnter Reservation ID to cancel: ");
+            String cancelId=scanner.nextLine();
+            cancellationService.cancelBooking(cancelId,inventory);
+            cancellationService.showRollbackHistory();
         }catch(InvalidBookingException e){
             System.out.println("Booking failed: "+e.getMessage());
         }catch(Exception e){
