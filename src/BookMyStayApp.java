@@ -1,7 +1,8 @@
+import java.io.*;
 import java.util.*;
 
-//Enable safe cancellation of confirmed bookings by correctly reversing system state changes, ensuring inventory consistency and predictable recovery behavior.
-//@version 10.0
+//Introduce persistence and recovery concepts by ensuring that critical system state survives application restarts, transitioning learners from in-memory thinking to durable system design.
+//@version 12.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -291,6 +292,40 @@ class ConcurrentBookingProcessor implements Runnable{
         }
     }
 }
+class FilePersistenceService{
+    public void saveInventory(RoomInventory inventory, String filePath){
+        try(BufferedWriter writer=new BufferedWriter(new FileWriter(filePath))){
+            Map<String,Integer> data=inventory.getRoomAvailability();
+            for(String roomType:data.keySet()){
+                writer.write(roomType+"="+data.get(roomType));
+                writer.newLine();
+            }
+            System.out.println("Inventory saved to file.");
+        }catch(IOException e){
+            System.out.println("Error saving inventory: "+e.getMessage());
+        }
+    }
+    public void loadInventory(RoomInventory inventory, String filePath){
+        try(BufferedReader reader=new BufferedReader(new FileReader(filePath))){
+            Map<String,Integer> data=inventory.getRoomAvailability();
+            String line;
+            while((line=reader.readLine())!=null){
+                String[] parts=line.split("=");
+                if(parts.length!=2) continue;
+                String roomType=parts[0];
+                int count=Integer.parseInt(parts[1]);
+                data.put(roomType, count);
+            }
+            System.out.println("Inventory loaded from file");
+        }catch(FileNotFoundException e){
+            System.out.println("File not found. Starting with default inventory.");
+        }catch(IOException e){
+            System.out.println("Error loading inventory: "+e.getMessage());
+        }catch(NumberFormatException e){
+            System.out.println("Invalid data format in file");
+        }
+    }
+}
 public class BookMyStayApp{
     public static void main(String[] args) throws Exception{
         System.out.println("Concurrent Booking Simulation");
@@ -300,17 +335,13 @@ public class BookMyStayApp{
         CancellationService cancelService=new CancellationService();
         BookingHistory history=new BookingHistory();
         BookingReportService report=new BookingReportService();
-
+        FilePersistenceService persistence=new FilePersistenceService();
+        String filePath="inventory.txt";
+        persistence.loadInventory(inventory, filePath);
         queue.addRequest(new Reservation("Abhi", "Single"));
         queue.addRequest(new Reservation("Vanmathi", "Double"));
         queue.addRequest(new Reservation("Kural", "Suite"));
         queue.addRequest(new Reservation("Subha", "Single"));
-        Thread t1=new Thread(new ConcurrentBookingProcessor(queue, inventory, allocator, cancelService, history));
-        Thread t2=new Thread(new ConcurrentBookingProcessor(queue, inventory, allocator, cancelService, history));
-        t1.start();
-        t2.start();
-        t1.join();
-        t2.join();
-        report.generateReport(history);
+        persistence.saveInventory(inventory, filePath);
     }
 }
