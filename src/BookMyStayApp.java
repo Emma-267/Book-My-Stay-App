@@ -1,7 +1,7 @@
 import java.util.*;
 
-// Confirm booking requests by assigning rooms safely while ensuring inventory consistency and preventing double-booking under all circumstances.
-//@version 6.0
+//Extend the booking model to support optional services, demonstrating how real-world business features can be added without modifying core booking or allocation logic.
+//@version 7.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -71,11 +71,17 @@ class RoomSearchService{
     }
 }
 class Reservation{
+    private static int counter=1;
+    private String reservationId;
     private String guestName;
     private String roomType;
     public Reservation(String guestName, String roomType){
         this.guestName=guestName;
         this.roomType=roomType;
+        this.reservationId="RES-"+counter++;
+    }
+    public String getReservationId(){
+        return reservationId;
     }
     public String getGuestName(){
         return guestName;
@@ -140,12 +146,48 @@ class RoomAllocationService{
         }
     }
 }
+class AddOnService{
+    private String serviceName;
+    private double cost;
+    public AddOnService(String serviceName, double cost){
+        this.serviceName=serviceName;
+        this.cost=cost;
+    }
+    public String getServiceName(){
+        return serviceName;
+    }
+    public double getCost(){
+        return cost;
+    }
+}
+class AddOnServiceManager{
+    private Map<String,List<AddOnService>> servicesByReservation;
+    public AddOnServiceManager(){
+        servicesByReservation=new HashMap<>();
+    }
+    public void addService(String reservationID, AddOnService service){
+        servicesByReservation.computeIfAbsent(reservationID,k->new ArrayList<>()).add(service);
+        System.out.println("Added service: "+service.getServiceName()+" (₹"+service.getCost()+") to Reservation: "+reservationID);
+    }
+    public double calculateTotalServiceCost(String reservationID){
+        List<AddOnService> services=servicesByReservation.get(reservationID);
+        if(services==null||services.isEmpty()){
+            return 0.0;
+        }
+        double total=0.0;
+        for(AddOnService service:services){
+            total+=service.getCost();
+        }
+        return total;
+    }
+}
 public class BookMyStayApp{
     public static void main(String[] args){
-        System.out.println("Room Allocation Processing");
+        System.out.println("Add-On Service Selection");
         BookingRequestQueue bookingQueue=new BookingRequestQueue();
         RoomInventory inventory=new RoomInventory();
         RoomAllocationService allocator=new RoomAllocationService();
+        AddOnServiceManager serviceManager=new AddOnServiceManager();
         Reservation r1=new Reservation("Abhi","Single");
         Reservation r2=new Reservation("Subha","Double");
         Reservation r3=new Reservation("Vanmathi","Suite");
@@ -156,5 +198,11 @@ public class BookMyStayApp{
             Reservation currentRequest=bookingQueue.getNextRequest();
             allocator.allocateRoom(currentRequest,inventory);
         }
+        serviceManager.addService(r1.getReservationId(),new AddOnService("Breakfast", 200));
+        serviceManager.addService(r1.getReservationId(),new AddOnService("Airport Pickup", 800));
+        serviceManager.addService(r2.getReservationId(),new AddOnService("Extra Bed", 500));
+        System.out.println(r1.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r1.getReservationId()));
+        System.out.println(r2.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r2.getReservationId()));
+        System.out.println(r3.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r3.getReservationId()));
     }
 }
