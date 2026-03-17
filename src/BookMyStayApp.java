@@ -1,7 +1,7 @@
 import java.util.*;
 
-//Introduce historical tracking of confirmed bookings to provide operational visibility, enable audits, and support reporting, reinforcing a persistence-oriented mindset without introducing external storage.
-//@version 8.0
+//Strengthen system reliability by introducing structured validation and error handling, ensuring that invalid inputs and inconsistent states are detected and handled early.
+//@version 9.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -209,28 +209,54 @@ class BookingReportService{
         }
     }
 }
+class InvalidBookingException extends Exception{
+    public InvalidBookingException(String message){
+        super(message);
+    }
+}
+class ReservationValidator{
+    public void validate(String guestName, String roomType, RoomInventory inventory) throws InvalidBookingException{
+        if(guestName==null||guestName.trim().isEmpty()){
+            throw new InvalidBookingException("Guest name cannot be empty");
+        }
+        if(roomType==null||roomType.trim().isEmpty()){
+            throw new InvalidBookingException("Room type cannot be empty");
+        }
+        Map<String,Integer> availability=inventory.getRoomAvailability();
+        if(!availability.containsKey(roomType)){
+            throw new InvalidBookingException("Invalid room type: "+roomType);
+        }
+        if(availability.get(roomType)<=0){
+            throw new InvalidBookingException("No "+roomType+" rooms available");
+        }
+    }
+}
 public class BookMyStayApp{
     public static void main(String[] args){
-        System.out.println("Booking History and Reporting");
+        System.out.println("Booking Validation");
+        Scanner scanner=new Scanner(System.in);
         BookingRequestQueue bookingQueue=new BookingRequestQueue();
+        ReservationValidator validator=new ReservationValidator();
         RoomInventory inventory=new RoomInventory();
         RoomAllocationService allocator=new RoomAllocationService();
-        AddOnServiceManager serviceManager=new AddOnServiceManager();
-        BookingHistory history=new BookingHistory();
-        BookingReportService reportService=new BookingReportService();
-        Reservation r1=new Reservation("Abhi","Single");
-        Reservation r2=new Reservation("Subha","Double");
-        Reservation r3=new Reservation("Vanmathi","Suite");
-        bookingQueue.addRequest(r1);
-        bookingQueue.addRequest(r2);
-        bookingQueue.addRequest(r3);
-        while(bookingQueue.hasPendingRequests()){
-            Reservation currentRequest=bookingQueue.getNextRequest();
-            boolean success=allocator.allocateRoom(currentRequest,inventory);
-            if(success){
-                history.addReservation(currentRequest);
+        try{
+            System.out.print("Enter Guest Name: ");
+            String name=scanner.nextLine();
+            System.out.print("Enter Room Type (Single/Double/Suite): ");
+            String roomType=scanner.nextLine();
+            validator.validate(name,roomType,inventory);
+            Reservation reservation=new Reservation(name,roomType);
+            bookingQueue.addRequest(reservation);
+            while(bookingQueue.hasPendingRequests()){
+                Reservation current=bookingQueue.getNextRequest();
+                allocator.allocateRoom(current,inventory);
             }
+        }catch(InvalidBookingException e){
+            System.out.println("Booking failed: "+e.getMessage());
+        }catch(Exception e){
+            System.out.println("Unexpected error: "+e.getMessage());
+        }finally{
+            scanner.close();
         }
-        reportService.generateReport(history);
     }
 }
