@@ -1,7 +1,7 @@
 import java.util.*;
 
-//Enable safe cancellation of confirmed bookings by correctly reversing system state changes, ensuring inventory consistency and predictable recovery behavior.
-//@version 10.0
+//Demonstrate how concurrent access to shared resources can lead to inconsistent system state and show how synchronization ensures correctness under multi-user conditions.
+//@version 11.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
