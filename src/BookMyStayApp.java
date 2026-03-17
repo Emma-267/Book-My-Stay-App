@@ -1,7 +1,7 @@
 import java.util.*;
 
-//Extend the booking model to support optional services, demonstrating how real-world business features can be added without modifying core booking or allocation logic.
-//@version 7.0
+//Introduce historical tracking of confirmed bookings to provide operational visibility, enable audits, and support reporting, reinforcing a persistence-oriented mindset without introducing external storage.
+//@version 8.0
 abstract class Room{
     protected int numberOfBeds;
     protected int squareFeet;
@@ -115,22 +115,23 @@ class RoomAllocationService{
         assignedRoomsByType.put("Double", new HashSet<>());
         assignedRoomsByType.put("Suite", new HashSet<>());
     }
-    public void allocateRoom(Reservation reservation, RoomInventory inventory){
+    public boolean allocateRoom(Reservation reservation, RoomInventory inventory){
         String roomType=reservation.getRoomType();
         Map<String,Integer> availability=inventory.getRoomAvailability();
         if(!availability.containsKey(roomType)||availability.get(roomType)<=0){
             System.out.println("Booking failed for "+reservation.getGuestName()+" (No "+roomType+" rooms available)");
-            return;
+            return false;
         }
         String roomId=generateRoomId(roomType);
         if(roomId==null){
             System.out.println("Booking failed for "+reservation.getGuestName()+" (No unique room available)");
-            return;
+            return false;
         }
         allocatedRoomIds.add(roomId);
         assignedRoomsByType.get(roomType).add(roomId);
         inventory.updateAvailability(roomType,availability.get(roomType)-1);
         System.out.println("Booking confirmed for Guest: "+reservation.getGuestName()+", Room ID: "+roomId);
+        return true;
     }
     private String generateRoomId(String roomType){
         int counter=1;
@@ -181,13 +182,42 @@ class AddOnServiceManager{
         return total;
     }
 }
+class BookingHistory{
+    private List<Reservation> confirmedReservations;
+    public BookingHistory(){
+        confirmedReservations=new ArrayList<>();
+    }
+    public void addReservation(Reservation reservation){
+        confirmedReservations.add(reservation);
+    }
+    public List<Reservation> getConfirmedReservations(){
+        return confirmedReservations;
+    }
+}
+class BookingReportService{
+    public void generateReport(BookingHistory history){
+        List<Reservation> reservations=history.getConfirmedReservations();
+        System.out.println("\nBooking History Report");
+        if(reservations.isEmpty()){
+            System.out.println("No bookings to report");
+            return;
+        }
+        Map<String,Integer> roomTypeCount=new HashMap<>();
+        for(Reservation r:reservations){
+            System.out.println("Guest: "+r.getGuestName()+", Room Type: "+r.getRoomType());
+            roomTypeCount.put(r.getRoomType(),roomTypeCount.getOrDefault(r.getRoomType(),0)+1);
+        }
+    }
+}
 public class BookMyStayApp{
     public static void main(String[] args){
-        System.out.println("Add-On Service Selection");
+        System.out.println("Booking History and Reporting");
         BookingRequestQueue bookingQueue=new BookingRequestQueue();
         RoomInventory inventory=new RoomInventory();
         RoomAllocationService allocator=new RoomAllocationService();
         AddOnServiceManager serviceManager=new AddOnServiceManager();
+        BookingHistory history=new BookingHistory();
+        BookingReportService reportService=new BookingReportService();
         Reservation r1=new Reservation("Abhi","Single");
         Reservation r2=new Reservation("Subha","Double");
         Reservation r3=new Reservation("Vanmathi","Suite");
@@ -196,13 +226,11 @@ public class BookMyStayApp{
         bookingQueue.addRequest(r3);
         while(bookingQueue.hasPendingRequests()){
             Reservation currentRequest=bookingQueue.getNextRequest();
-            allocator.allocateRoom(currentRequest,inventory);
+            boolean success=allocator.allocateRoom(currentRequest,inventory);
+            if(success){
+                history.addReservation(currentRequest);
+            }
         }
-        serviceManager.addService(r1.getReservationId(),new AddOnService("Breakfast", 200));
-        serviceManager.addService(r1.getReservationId(),new AddOnService("Airport Pickup", 800));
-        serviceManager.addService(r2.getReservationId(),new AddOnService("Extra Bed", 500));
-        System.out.println(r1.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r1.getReservationId()));
-        System.out.println(r2.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r2.getReservationId()));
-        System.out.println(r3.getGuestName()+" Total Add-On Cost: ₹"+serviceManager.calculateTotalServiceCost(r3.getReservationId()));
+        reportService.generateReport(history);
     }
 }
